@@ -1,0 +1,7 @@
+[package]
+name = "unite_bookmark_sync"
+version = "0.1.0"
+authors = ["Koji Ota"]
+
+[dependencies]
+yaml-rust = "*"
