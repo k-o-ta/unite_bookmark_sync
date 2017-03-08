@@ -5,20 +5,39 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+#[derive(Debug)]
 struct Bookmark<'a> {
-    local_bookmark: &'a Path,
-    shared_bookmark: &'a Path,
+    local_bookmark_path: &'a Path,
+    shared_bookmark_path: &'a Path,
+    local_project_path: &'a Path,
 }
 
 fn main() {
     match load_from_file() {
         Ok(yaml_vec) => {
-            for yaml in yaml_vec {
-                println!("{:?}", yaml["local_bookmark_repository"]);
-                println!("{:?}", yaml["shared_bookmark_repository"]);
-                for project in yaml["projects"].as_vec() {
-                    // println!("{:?}", project);
-                    // println!("{:?}", project["directory"]);
+            let yaml = &yaml_vec[0];
+            // println!("{}", yaml["local_bookmark_repository"].as_str().unwrap());
+            // println!("{:?}", yaml["shared_bookmark_repository"].as_str().unwrap());
+            // println!("{:?}", yaml["projects"]);
+            match yaml["projects"].as_vec() {
+                Some(projects) => {
+                    for project in projects {
+                        let bookmark = Bookmark {
+                            local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
+                                .as_str()
+                                .unwrap_or("/")),
+                            shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
+                                .as_str()
+                                .unwrap_or("/")),
+                            local_project_path: Path::new(project["directory"]
+                                .as_str()
+                                .unwrap_or("/")),
+                        };
+                        println!("{:?}", bookmark);
+                    }
+                }
+                None => {
+                    println!("there is no project");
                 }
             }
         }
