@@ -3,18 +3,28 @@ use yaml_rust::{yaml, Yaml};
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
+
+struct Bookmark<'a> {
+    local_bookmark: &'a Path,
+    shared_bookmark: &'a Path,
+}
 
 fn main() {
     match load_from_file() {
         Ok(yaml_vec) => {
-            let yaml = &yaml_vec[0];
-            println!("{:?}", yaml["bookmark_repository"]);
-            println!("{:?}", yaml["shared_bookmark_repository"]);
+            for yaml in yaml_vec {
+                println!("{:?}", yaml["local_bookmark_repository"]);
+                println!("{:?}", yaml["shared_bookmark_repository"]);
+                for project in yaml["projects"].as_vec() {
+                    // println!("{:?}", project);
+                    // println!("{:?}", project["directory"]);
+                }
+            }
         }
         Err(err) => println!("{}", err),
     }
 }
-
 
 fn load_from_file() -> Result<Vec<Yaml>, String> {
     env::home_dir()
