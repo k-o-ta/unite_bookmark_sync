@@ -23,35 +23,41 @@ fn main() {
     match load_from_file() {
         Ok(yaml_vec) => {
             let yaml = &yaml_vec[0];
-            match yaml["projects"].as_vec() {
-                Some(projects) => {
-                    let ps: Vec<_> = projects.into_iter()
-                                             .map(|p| {
-                                                 Project {
-                                                     name: p["name"].as_str().unwrap_or("default"),
-                                                     directory: Path::new(p["directory"]
-                                                                              .as_str()
-                                                                              .unwrap_or("/")),
-                                                 }
-                                             })
-                                             .collect();
-                    let bookmark = Bookmark {
-                        local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
-                                                           .as_str()
-                                                           .unwrap_or("/")),
-                        shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
-                                                            .as_str()
-                                                            .unwrap_or("/")),
-                        projects: ps,
-                    };
-                    println!("{:?}", bookmark);
-                }
-                None => {
-                    println!("there is no project");
-                }
-            }
+            let bookmark = build_bookmark(yaml);
+            println!("{:?}", bookmark);
         }
         Err(err) => println!("{}", err),
+    }
+}
+
+fn build_bookmark<'a>(yaml: &'a Yaml) -> Option<Bookmark> {
+    match yaml["projects"].as_vec() {
+        Some(projects) => {
+            let ps: Vec<_> = projects.into_iter()
+                .map(|p| {
+                    Project {
+                        name: p["name"].as_str().unwrap_or("default"),
+                        directory: Path::new(p["directory"]
+                            .as_str()
+                            .unwrap_or("/")),
+                    }
+                })
+                .collect();
+            let bookmark = Bookmark {
+                local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
+                    .as_str()
+                    .unwrap_or("/")),
+                shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
+                    .as_str()
+                    .unwrap_or("/")),
+                projects: ps,
+            };
+            Some(bookmark)
+        }
+        None => {
+            println!("there is no project");
+            None
+        }
     }
 }
 
