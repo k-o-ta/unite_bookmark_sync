@@ -9,32 +9,42 @@ use std::path::Path;
 struct Bookmark<'a> {
     local_bookmark_path: &'a Path,
     shared_bookmark_path: &'a Path,
-    local_project_path: &'a Path,
+    // local_project_path: &'a Path,
+    projects: Vec<Project<'a>>,
+}
+
+#[derive(Debug)]
+struct Project<'a> {
+    name: &'a str,
+    directory: &'a Path,
 }
 
 fn main() {
     match load_from_file() {
         Ok(yaml_vec) => {
             let yaml = &yaml_vec[0];
-            // println!("{}", yaml["local_bookmark_repository"].as_str().unwrap());
-            // println!("{:?}", yaml["shared_bookmark_repository"].as_str().unwrap());
-            // println!("{:?}", yaml["projects"]);
             match yaml["projects"].as_vec() {
                 Some(projects) => {
-                    for project in projects {
-                        let bookmark = Bookmark {
-                            local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
-                                .as_str()
-                                .unwrap_or("/")),
-                            shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
-                                .as_str()
-                                .unwrap_or("/")),
-                            local_project_path: Path::new(project["directory"]
-                                .as_str()
-                                .unwrap_or("/")),
-                        };
-                        println!("{:?}", bookmark);
-                    }
+                    let ps: Vec<_> = projects.into_iter()
+                                             .map(|p| {
+                                                 Project {
+                                                     name: p["name"].as_str().unwrap_or("default"),
+                                                     directory: Path::new(p["directory"]
+                                                                              .as_str()
+                                                                              .unwrap_or("/")),
+                                                 }
+                                             })
+                                             .collect();
+                    let bookmark = Bookmark {
+                        local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
+                                                           .as_str()
+                                                           .unwrap_or("/")),
+                        shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
+                                                            .as_str()
+                                                            .unwrap_or("/")),
+                        projects: ps,
+                    };
+                    println!("{:?}", bookmark);
                 }
                 None => {
                     println!("there is no project");
