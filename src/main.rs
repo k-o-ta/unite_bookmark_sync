@@ -24,7 +24,12 @@ fn main() {
         Ok(yaml_vec) => {
             let yaml = &yaml_vec[0];
             let bookmark = build_bookmark(yaml);
-            println!("{:?}", bookmark);
+            match bookmark {
+                Some(b) => {
+                    sync_bookmarks(b);
+                }
+                None => {}
+            }
         }
         Err(err) => println!("{}", err),
     }
@@ -79,4 +84,13 @@ fn load_from_file() -> Result<Vec<Yaml>, String> {
         .and_then(|mut yaml_string| {
             yaml::YamlLoader::load_from_str(&mut yaml_string).map_err(|err| err.to_string())
         })
+}
+
+fn sync_bookmarks(bookmark: Bookmark) {
+    for project in bookmark.projects {
+        let file_name = format!("{}/{}",
+                                bookmark.shared_bookmark_path.to_str().unwrap(),
+                                project.name);
+        File::create(file_name);
+    }
 }
