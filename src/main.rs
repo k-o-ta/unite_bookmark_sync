@@ -1,10 +1,11 @@
 extern crate yaml_rust;
 extern crate clap;
 use yaml_rust::{yaml, Yaml};
+use yaml_rust::scanner::ScanError;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::Read;
+use std::io::{self, Read};
 use std::path::Path;
 use std::io::BufReader;
 use std::io::BufRead;
@@ -22,6 +23,31 @@ struct Bookmark<'a> {
 struct Project<'a> {
     name: &'a str,
     directory: &'a Path,
+}
+
+#[derive(Debug)]
+enum CliError {
+    Io(io::Error),
+    Yaml(yaml_rust::ScanError),
+    Home(String),
+}
+
+impl From<io::Error> for CliError {
+    fn from(err: io::Error) -> CliError {
+        CliError::Io(err)
+    }
+}
+
+impl From<yaml_rust::ScanError> for CliError {
+    fn from(err: yaml_rust::ScanError) -> CliError {
+        CliError::Yaml(err)
+    }
+}
+
+impl From<String> for CliError {
+    fn from(err: String) -> CliError {
+        CliError::Home(String::from(err))
+    }
 }
 
 fn main() {
@@ -57,7 +83,7 @@ fn main() {
                 None => {}
             }
         }
-        Err(err) => println!("err:{}", err),
+        Err(err) => println!("err:{:?}", err),
     }
 }
 
@@ -132,24 +158,20 @@ fn build_bookmark<'a>(yaml: &'a Yaml) -> Option<Bookmark> {
     }
 }
 
-fn load_from_file() -> Result<Vec<Yaml>, String> {
-    env::home_dir()
-        .ok_or("no home directory".to_owned())
+fn load_from_file() -> Result<Vec<Yaml>, CliError> {
+    let bookmark_sync_path = env::home_dir().ok_or("no home directory".to_owned())
         .and_then(|mut home| {
             home.push(".unite_bookmark_sync.yml");
             Ok(home)
-        })
-        .and_then(|path| File::open(path).map_err(|err| err.to_string()))
-        .map_err(|err| err.to_string())
-        .and_then(|mut file| {
+        })?;
+
+    let mut bookmark_sync_string = File::open(bookmark_sync_path).and_then(|mut file| {
             let mut yaml_string = String::new();
             file.read_to_string(&mut yaml_string)
-                .map_err(|err| err.to_string())
                 .map(|_| yaml_string)
-        })
-        .and_then(|mut yaml_string| {
-            yaml::YamlLoader::load_from_str(&mut yaml_string).map_err(|err| err.to_string())
-        })
+        })?;
+    let yaml = yaml::YamlLoader::load_from_str(&mut bookmark_sync_string)?;
+    Ok(yaml)
 }
 
 fn sync_bookmarks(bookmark: Bookmark) {
