@@ -22,18 +22,67 @@ struct Project<'a> {
 }
 
 fn main() {
+    let mut write = false;
+    for argument in env::args() {
+        write = true;
+        println!("{}", argument);
+    }
     match load_from_file() {
         Ok(yaml_vec) => {
             let yaml = &yaml_vec[0];
             let bookmark = build_bookmark(yaml);
             match bookmark {
                 Some(b) => {
-                    sync_bookmarks(b);
+                    if write == true {
+                        gets_bookmarks(b);
+                    } else {
+                        sync_bookmarks(b);
+                    }
                 }
                 None => {}
             }
         }
-        Err(err) => println!("{}", err),
+        Err(err) => println!("err:{}", err),
+    }
+}
+
+fn gets_bookmarks(bookmark: Bookmark) {
+    for project in bookmark.projects {
+        let shared_file_name = format!("{}/{}",
+                                       bookmark.shared_bookmark_path.to_str().unwrap(),
+                                       project.name);
+        let local_file_name = format!("{}/{}",
+                                      bookmark.local_bookmark_path.to_str().unwrap(),
+                                      project.name);
+
+        let mut local_file = File::create(local_file_name).unwrap();
+        match File::open(shared_file_name) {
+            Ok(f) => {
+                let mut file = BufReader::new(&f);
+                let mut lines = file.lines();
+                lines.next();
+                local_file.write_fmt(format_args!("0.1.0\n"));
+                for line in lines {
+                    match line {
+                        Ok(l) => {
+                            let bookmark_info: Vec<&str> = l.split('\t').collect();
+                            let bookmarked_file = format!("{}{}",
+                                                          project.directory.to_str().unwrap(),
+                                                          bookmark_info[1].to_string());
+                            local_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
+                                                              bookmark_info[0],
+                                                              bookmarked_file,
+                                                              bookmark_info[2],
+                                                              bookmark_info[3]));
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+            Err(_) => {
+                continue;
+            }
+        }
     }
 }
 
