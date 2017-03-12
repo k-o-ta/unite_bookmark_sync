@@ -5,3 +5,4 @@ authors = ["Koji Ota"]
 
 [dependencies]
 yaml-rust = "*"
+clap = "2"

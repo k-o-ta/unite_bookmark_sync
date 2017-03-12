@@ -1,4 +1,5 @@
 extern crate yaml_rust;
+extern crate clap;
 use yaml_rust::{yaml, Yaml};
 use std::env;
 use std::fs::File;
@@ -7,6 +8,8 @@ use std::io::Read;
 use std::path::Path;
 use std::io::BufReader;
 use std::io::BufRead;
+
+use clap::{Arg, App, SubCommand};
 
 #[derive(Debug)]
 struct Bookmark<'a> {
@@ -22,18 +25,30 @@ struct Project<'a> {
 }
 
 fn main() {
-    let mut write = false;
-    for argument in env::args() {
-        write = true;
-        println!("{}", argument);
+    let matches = App::new("Syncronize unite_bookmarks")
+        .version("0.1")
+        .subcommand(SubCommand::with_name("push").about("push bookmarks to shared repository"))
+        .subcommand(SubCommand::with_name("pull").about("pull bookmarks from shared repository"))
+        .get_matches();
+
+    let mut push = false;
+
+    match matches.subcommand_name() {
+        Some("push") => push = true,
+        Some("pull") => push = false,
+        _ => {
+            println!("no such command");
+            return;
+        }
     }
+
     match load_from_file() {
         Ok(yaml_vec) => {
             let yaml = &yaml_vec[0];
             let bookmark = build_bookmark(yaml);
             match bookmark {
                 Some(b) => {
-                    if write == true {
+                    if push == false {
                         gets_bookmarks(b);
                     } else {
                         sync_bookmarks(b);
