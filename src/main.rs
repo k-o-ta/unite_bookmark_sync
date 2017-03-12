@@ -127,6 +127,7 @@ fn gets_bookmarks(bookmark: Bookmark) {
     }
 }
 
+
 fn build_bookmark<'a>(yaml: &'a Yaml) -> Option<Bookmark> {
     match yaml["projects"].as_vec() {
         Some(projects) => {
@@ -172,6 +173,59 @@ fn load_from_file() -> Result<Vec<Yaml>, CliError> {
         })?;
     let yaml = yaml::YamlLoader::load_from_str(&mut bookmark_sync_string)?;
     Ok(yaml)
+}
+
+fn _build_bookmark<'a>(yaml: &'a Yaml) -> Result<Bookmark, CliError> {
+    let projects = yaml["projects"].as_vec().ok_or("no project".to_owned())?;
+    let ps: Vec<_> = projects.into_iter()
+        .map(|p| {
+            Project {
+                name: p["name"].as_str().ok_or("no name".to_owned())?,
+                directory: Path::new(p["directory"]
+                    .as_str()
+                    .unwrap_or("/")),
+            }
+        })
+        .collect();
+    // let bookmark = Bookmark {
+    //     local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
+    //         .as_str()
+    //         .unwrap_or("/")),
+    //     shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
+    //         .as_str()
+    //         .unwrap_or("/")),
+    //     projects: ps,
+    // };
+    // Some(bookmark)
+    //
+    // match yaml["projects"].as_vec() {
+    //     Some(projects) => {
+    //         let ps: Vec<_> = projects.into_iter()
+    //             .map(|p| {
+    //                 Project {
+    //                     name: p["name"].as_str().unwrap_or("default"),
+    //                     directory: Path::new(p["directory"]
+    //                         .as_str()
+    //                         .unwrap_or("/")),
+    //                 }
+    //             })
+    //             .collect();
+    //         let bookmark = Bookmark {
+    //             local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
+    //                 .as_str()
+    //                 .unwrap_or("/")),
+    //             shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
+    //                 .as_str()
+    //                 .unwrap_or("/")),
+    //             projects: ps,
+    //         };
+    //         Some(bookmark)
+    //     }
+    //     None => {
+    //         println!("there is no project");
+    //         None
+    //     }
+    // }
 }
 
 fn sync_bookmarks(bookmark: Bookmark) {
