@@ -29,7 +29,7 @@ struct Project<'a> {
 enum CliError {
     Io(io::Error),
     Yaml(yaml_rust::ScanError),
-    Home(String),
+    None(String),
 }
 
 impl From<io::Error> for CliError {
@@ -46,7 +46,7 @@ impl From<yaml_rust::ScanError> for CliError {
 
 impl From<String> for CliError {
     fn from(err: String) -> CliError {
-        CliError::Home(String::from(err))
+        CliError::None(String::from(err))
     }
 }
 
@@ -177,16 +177,34 @@ fn load_from_file() -> Result<Vec<Yaml>, CliError> {
 
 fn _build_bookmark<'a>(yaml: &'a Yaml) -> Result<Bookmark, CliError> {
     let projects = yaml["projects"].as_vec().ok_or("no project".to_owned())?;
-    let ps: Vec<_> = projects.into_iter()
+    let ps: Result<Vec<_>, _> = projects.into_iter()
         .map(|p| {
-            Project {
-                name: p["name"].as_str().ok_or("no name".to_owned())?,
-                directory: Path::new(p["directory"]
-                    .as_str()
-                    .unwrap_or("/")),
-            }
+            // let name = p["name"].as_str().ok_or("no name".to_owned())?;
+            let name = try!(p["name"].as_str().ok_or("no name".to_owned()));
+            let directory_string = p["directory"].as_str().ok_or("no directory".to_owned())?;
+            // let directory = Path::new(p["directory"].as_str().ok_or("no directory".to_owned()));
+            let directory = Path::new(directory_string);
+            // p["name"].as_str().ok_or("no name".to_owned())
+            Ok(Project {
+                name: name,
+                // name: p["name"].as_str().ok_or("no name".to_owned()).unwrap(),
+                directory: directory
+                // directory: Path::new(p["directory"]
+                //     .as_str()
+                //     .unwrap_or("/")),
+            })
         })
         .collect();
+    //         let bookmark = Bookmark {
+    //             local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
+    //                 .as_str()
+    //                 .unwrap_or("/")),
+    //             shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
+    //                 .as_str()
+    //                 .unwrap_or("/")),
+    //             projects: ps,
+    //         };
+    ps
     // let bookmark = Bookmark {
     //     local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
     //         .as_str()
