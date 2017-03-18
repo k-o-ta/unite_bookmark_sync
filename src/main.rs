@@ -84,89 +84,81 @@ fn main() {
 }
 
 impl<'a> Bookmark<'a> {
+    fn do_sync(&self, from: &Path, to: &Path, project: &Project, push: bool) {
+        match File::create(to) {
+            Ok(mut to_file) => {
+                match File::open(from) {
+                    Ok(f) => {
+                        let file = BufReader::new(&f);
+                        let mut lines = file.lines();
+                        lines.next();
+                        match to_file.write_fmt(format_args!("0.1.0\n")) {
+                            Ok(_) => {}
+                            Err(err) => println!("err:{:?}", err),
+                        }
+                        for line in lines {
+                            match line {
+                                Ok(l) => {
+                                    let bookmark_info: Vec<&str> = l.split('\t').collect();
+                                    let bookmarked_file;
+                                    if push {
+                                        bookmarked_file = bookmark_info[1]
+                                            .to_string()
+                                            .replacen(project.directory.to_str().unwrap(), "", 1);
+                                    } else {
+                                        bookmarked_file =
+                                            format!("{}{}",
+                                                    project.directory.to_str().unwrap(),
+                                                    bookmark_info[1].to_string());
+                                    }
+                                    match to_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
+                                                                         bookmark_info[0],
+                                                                         bookmarked_file,
+                                                                         bookmark_info[2],
+                                                                         bookmark_info[3])) {
+                                        Ok(_) => {}
+                                        Err(err) => println!("err:{:?}", err),
+                                    }
+                                }
+                                Err(err) => println!("err:{:?}", err),
+                            }
+                        }
+                    }
+                    Err(err) => println!("err:{:?}", err),
+                }
+            }
+            Err(err) => println!("err:{:?}", err),
+        }
+    }
+
     fn fetch(&self) {
         for project in &self.projects {
-            let shared_file_name = format!("{}/{}",
-                                           self.shared_bookmark_path.to_str().unwrap(),
-                                           project.name);
+            let shared_file_path_name = format!("{}/{}",
+                                                self.shared_bookmark_path.to_str().unwrap(),
+                                                project.name);
+            let shared_file_path = Path::new(shared_file_path_name.as_str());
+
             let local_file_name = format!("{}/{}",
                                           self.local_bookmark_path.to_str().unwrap(),
                                           project.name);
-            let mut local_file = File::create(local_file_name).unwrap();
-            match File::open(shared_file_name) {
-                Ok(f) => {
-                    let file = BufReader::new(&f);
-                    let mut lines = file.lines();
-                    lines.next();
-                    match local_file.write_fmt(format_args!("0.1.0\n")) {
-                        Ok(_) => {}
-                        Err(err) => println!("err:{:?}", err),
-                    }
-                    for line in lines {
-                        match line {
-                            Ok(l) => {
-                                let bookmark_info: Vec<&str> = l.split('\t').collect();
-                                let bookmarked_file = format!("{}{}",
-                                                              project.directory.to_str().unwrap(),
-                                                              bookmark_info[1].to_string());
-                                match local_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
-                                                                        bookmark_info[0],
-                                                                        bookmarked_file,
-                                                                        bookmark_info[2],
-                                                                        bookmark_info[3])) {
-                                    Ok(_) => {}
-                                    Err(err) => println!("err:{:?}", err),
-                                }
-                            }
-                            Err(err) => println!("err:{:?}", err),
-                        }
-                    }
-                }
-                Err(err) => println!("err:{:?}", err),
-            }
+            let local_file_path = Path::new(local_file_name.as_str());
+            self.do_sync(shared_file_path, local_file_path, project, false)
         }
     }
 
     fn push(&self) {
         for project in &self.projects {
-            let shared_file_name = format!("{}/{}",
-                                           self.shared_bookmark_path.to_str().unwrap(),
-                                           project.name);
-            let local_file_name = format!("{}/{}",
-                                          self.local_bookmark_path.to_str().unwrap(),
-                                          project.name);
-            let mut shared_file = File::create(shared_file_name).unwrap();
-            match File::open(local_file_name) {
-                Ok(f) => {
-                    let file = BufReader::new(&f);
-                    let mut lines = file.lines();
-                    lines.next();
-                    match shared_file.write_fmt(format_args!("0.1.0\n")) {
-                        Ok(_) => {}
-                        Err(err) => println!("err:{:?}", err),
-                    }
-                    for line in lines {
-                        match line {
-                            Ok(l) => {
-                                let bookmark_info: Vec<&str> = l.split('\t').collect();
-                                let bookmarked_file = bookmark_info[1]
-                                    .to_string()
-                                    .replacen(project.directory.to_str().unwrap(), "", 1);
-                                match shared_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
-                                                                         bookmark_info[0],
-                                                                         bookmarked_file,
-                                                                         bookmark_info[2],
-                                                                         bookmark_info[3])) {
-                                    Ok(_) => {}
-                                    Err(err) => println!("err:{:?}", err),
-                                }
-                            }
-                            Err(err) => println!("err:{:?}", err),
-                        }
-                    }
-                }
-                Err(err) => println!("err:{:?}", err),
-            }
+            let shared_file_path_name = format!("{}/{}",
+                                                self.shared_bookmark_path.to_str().unwrap(),
+                                                project.name);
+            let shared_file_path = Path::new(shared_file_path_name.as_str());
+
+            let local_file_path_name = format!("{}/{}",
+                                               self.local_bookmark_path.to_str().unwrap(),
+                                               project.name);
+            let local_file_path = Path::new(local_file_path_name.as_str());
+
+            self.do_sync(local_file_path, shared_file_path, project, true)
         }
     }
 }
