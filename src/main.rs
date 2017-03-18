@@ -73,89 +73,97 @@ fn main() {
             let yaml = &yaml_vec[0];
             let bookmark = build_bookmark(yaml);
             match bookmark {
-                Some(b) => {
+                Ok(b) => {
                     if push == false {
-                        gets_bookmarks(b);
+                        b.fetch();
                     } else {
                         sync_bookmarks(b);
                     }
                 }
-                None => {}
+                Err(_) => {}
             }
         }
         Err(err) => println!("err:{:?}", err),
     }
 }
-
-fn gets_bookmarks(bookmark: Bookmark) {
-    for project in bookmark.projects {
-        let shared_file_name = format!("{}/{}",
-                                       bookmark.shared_bookmark_path.to_str().unwrap(),
-                                       project.name);
-        let local_file_name = format!("{}/{}",
-                                      bookmark.local_bookmark_path.to_str().unwrap(),
-                                      project.name);
-
-        let mut local_file = File::create(local_file_name).unwrap();
-        match File::open(shared_file_name) {
-            Ok(f) => {
-                let mut file = BufReader::new(&f);
-                let mut lines = file.lines();
-                lines.next();
-                local_file.write_fmt(format_args!("0.1.0\n"));
-                for line in lines {
-                    match line {
-                        Ok(l) => {
-                            let bookmark_info: Vec<&str> = l.split('\t').collect();
-                            let bookmarked_file = format!("{}{}",
-                                                          project.directory.to_str().unwrap(),
-                                                          bookmark_info[1].to_string());
-                            local_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
-                                                              bookmark_info[0],
-                                                              bookmarked_file,
-                                                              bookmark_info[2],
-                                                              bookmark_info[3]));
+impl<'a> Bookmark<'a> {
+    fn fetch(&self) {
+        for project in &self.projects {
+            let shared_file_name = format!("{}/{}",
+                                           self.shared_bookmark_path.to_str().unwrap(),
+                                           project.name);
+            let local_file_name = format!("{}/{}",
+                                          self.local_bookmark_path.to_str().unwrap(),
+                                          project.name);
+            let mut local_file = File::create(local_file_name).unwrap();
+            match File::open(shared_file_name) {
+                Ok(f) => {
+                    let mut file = BufReader::new(&f);
+                    let mut lines = file.lines();
+                    lines.next();
+                    local_file.write_fmt(format_args!("0.1.0\n"));
+                    for line in lines {
+                        match line {
+                            Ok(l) => {
+                                let bookmark_info: Vec<&str> = l.split('\t').collect();
+                                let bookmarked_file = format!("{}{}",
+                                                              project.directory.to_str().unwrap(),
+                                                              bookmark_info[1].to_string());
+                                local_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
+                                                                  bookmark_info[0],
+                                                                  bookmarked_file,
+                                                                  bookmark_info[2],
+                                                                  bookmark_info[3]));
+                            }
+                            Err(_) => {}
                         }
-                        Err(_) => {}
                     }
                 }
-            }
-            Err(_) => {
-                continue;
+                Err(_) => {
+                    continue;
+                }
             }
         }
     }
-}
 
-
-fn build_bookmark<'a>(yaml: &'a Yaml) -> Option<Bookmark> {
-    match yaml["projects"].as_vec() {
-        Some(projects) => {
-            let ps: Vec<_> = projects.into_iter()
-                .map(|p| {
-                    Project {
-                        name: p["name"].as_str().unwrap_or("default"),
-                        directory: Path::new(p["directory"]
-                            .as_str()
-                            .unwrap_or("/")),
+    fn push(&self) {
+        for project in &self.projects {
+            let shared_file_name = format!("{}/{}",
+                                           self.shared_bookmark_path.to_str().unwrap(),
+                                           project.name);
+            let local_file_name = format!("{}/{}",
+                                          self.local_bookmark_path.to_str().unwrap(),
+                                          project.name);
+            let mut shared_file = File::create(shared_file_name).unwrap();
+            match File::open(local_file_name) {
+                Ok(f) => {
+                    let mut file = BufReader::new(&f);
+                    let mut lines = file.lines();
+                    lines.next();
+                    shared_file.write_fmt(format_args!("0.1.0\n"));
+                    for line in lines {
+                        match line {
+                            Ok(l) => {
+                                let bookmark_info: Vec<&str> = l.split('\t').collect();
+                                let bookmarked_file = bookmark_info[1]
+                                    .to_string()
+                                    .replacen(project.directory.to_str().unwrap(), "", 1);
+                                shared_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
+                                                                   bookmark_info[0],
+                                                                   bookmarked_file,
+                                                                   bookmark_info[2],
+                                                                   bookmark_info[3]));
+                            }
+                            Err(_) => {}
+                        }
                     }
-                })
-                .collect();
-            let bookmark = Bookmark {
-                local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
-                    .as_str()
-                    .unwrap_or("/")),
-                shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
-                    .as_str()
-                    .unwrap_or("/")),
-                projects: ps,
-            };
-            Some(bookmark)
+                }
+                Err(_) => {
+                    continue;
+                }
+            }
         }
-        None => {
-            println!("there is no project");
-            None
-        }
+
     }
 }
 
@@ -175,112 +183,27 @@ fn load_from_file() -> Result<Vec<Yaml>, CliError> {
     Ok(yaml)
 }
 
-fn _build_bookmark<'a>(yaml: &'a Yaml) -> Result<Bookmark, CliError> {
+fn build_bookmark<'a>(yaml: &'a Yaml) -> Result<Bookmark, CliError> {
     let projects = yaml["projects"].as_vec().ok_or("no project".to_owned())?;
-    let ps: Result<Vec<_>, _> = projects.into_iter()
-        .map(|p| {
-            // let name = p["name"].as_str().ok_or("no name".to_owned())?;
-            let name = try!(p["name"].as_str().ok_or("no name".to_owned()));
-            let directory_string = p["directory"].as_str().ok_or("no directory".to_owned())?;
-            // let directory = Path::new(p["directory"].as_str().ok_or("no directory".to_owned()));
-            let directory = Path::new(directory_string);
-            // p["name"].as_str().ok_or("no name".to_owned())
-            Ok(Project {
-                name: name,
-                // name: p["name"].as_str().ok_or("no name".to_owned()).unwrap(),
-                directory: directory
-                // directory: Path::new(p["directory"]
-                //     .as_str()
-                //     .unwrap_or("/")),
-            })
-        })
-        .collect();
-    //         let bookmark = Bookmark {
-    //             local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
-    //                 .as_str()
-    //                 .unwrap_or("/")),
-    //             shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
-    //                 .as_str()
-    //                 .unwrap_or("/")),
-    //             projects: ps,
-    //         };
-    ps
-    // let bookmark = Bookmark {
-    //     local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
-    //         .as_str()
-    //         .unwrap_or("/")),
-    //     shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
-    //         .as_str()
-    //         .unwrap_or("/")),
-    //     projects: ps,
-    // };
-    // Some(bookmark)
-    //
-    // match yaml["projects"].as_vec() {
-    //     Some(projects) => {
-    //         let ps: Vec<_> = projects.into_iter()
-    //             .map(|p| {
-    //                 Project {
-    //                     name: p["name"].as_str().unwrap_or("default"),
-    //                     directory: Path::new(p["directory"]
-    //                         .as_str()
-    //                         .unwrap_or("/")),
-    //                 }
-    //             })
-    //             .collect();
-    //         let bookmark = Bookmark {
-    //             local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
-    //                 .as_str()
-    //                 .unwrap_or("/")),
-    //             shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
-    //                 .as_str()
-    //                 .unwrap_or("/")),
-    //             projects: ps,
-    //         };
-    //         Some(bookmark)
-    //     }
-    //     None => {
-    //         println!("there is no project");
-    //         None
-    //     }
-    // }
-}
-
-fn sync_bookmarks(bookmark: Bookmark) {
-    for project in bookmark.projects {
-        let shared_file_name = format!("{}/{}",
-                                       bookmark.shared_bookmark_path.to_str().unwrap(),
-                                       project.name);
-        let local_file_name = format!("{}/{}",
-                                      bookmark.local_bookmark_path.to_str().unwrap(),
-                                      project.name);
-        let mut shared_file = File::create(shared_file_name).unwrap();
-        match File::open(local_file_name) {
-            Ok(f) => {
-                let mut file = BufReader::new(&f);
-                let mut lines = file.lines();
-                lines.next();
-                shared_file.write_fmt(format_args!("0.1.0\n"));
-                for line in lines {
-                    match line {
-                        Ok(l) => {
-                            let bookmark_info: Vec<&str> = l.split('\t').collect();
-                            let bookmarked_file = bookmark_info[1]
-                                .to_string()
-                                .replacen(project.directory.to_str().unwrap(), "", 1);
-                            shared_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
-                                                               bookmark_info[0],
-                                                               bookmarked_file,
-                                                               bookmark_info[2],
-                                                               bookmark_info[3]));
-                        }
-                        Err(_) => {}
-                    }
-                }
-            }
-            Err(_) => {
-                continue;
+    let mut vec = Vec::new();
+    for pro in projects.into_iter() {
+        if let Some(name) = pro["name"].as_str() {
+            if let Some(directory_string) = pro["directory"].as_str() {
+                let directory = Path::new(directory_string);
+                vec.push(Project {
+                    name: name,
+                    directory: directory,
+                });
             }
         }
     }
+    Ok(Bookmark {
+        local_bookmark_path: Path::new(yaml["local_bookmark_repository"]
+            .as_str()
+            .unwrap_or("/")),
+        shared_bookmark_path: Path::new(yaml["shared_bookmark_repository"]
+            .as_str()
+            .unwrap_or("/")),
+        projects: vec,
+    })
 }
