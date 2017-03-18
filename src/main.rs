@@ -77,7 +77,7 @@ fn main() {
                     if push == false {
                         b.fetch();
                     } else {
-                        sync_bookmarks(b);
+                        b.push();
                     }
                 }
                 Err(_) => {}
