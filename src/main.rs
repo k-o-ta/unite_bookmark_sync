@@ -1,7 +1,6 @@
 extern crate yaml_rust;
 extern crate clap;
 use yaml_rust::{yaml, Yaml};
-use yaml_rust::scanner::ScanError;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -10,7 +9,7 @@ use std::path::Path;
 use std::io::BufReader;
 use std::io::BufRead;
 
-use clap::{Arg, App, SubCommand};
+use clap::{App, SubCommand};
 
 #[derive(Debug)]
 struct Bookmark<'a> {
@@ -57,35 +56,33 @@ fn main() {
         .subcommand(SubCommand::with_name("pull").about("pull bookmarks from shared repository"))
         .get_matches();
 
-    let mut push = false;
-
-    match matches.subcommand_name() {
-        Some("push") => push = true,
-        Some("pull") => push = false,
-        _ => {
-            println!("no such command");
-            return;
-        }
-    }
-
     match load_from_file() {
         Ok(yaml_vec) => {
             let yaml = &yaml_vec[0];
             let bookmark = build_bookmark(yaml);
             match bookmark {
                 Ok(b) => {
-                    if push == false {
-                        b.fetch();
-                    } else {
-                        b.push();
+                    match matches.subcommand_name() {
+                        Some("push") => {
+                            b.push();
+
+                        }
+                        Some("pull") => {
+                            b.fetch();
+                        }
+                        _ => {
+                            println!("no such command");
+                            return;
+                        }
                     }
                 }
-                Err(_) => {}
+                Err(err) => println!("err:{:?}", err),
             }
         }
         Err(err) => println!("err:{:?}", err),
     }
 }
+
 impl<'a> Bookmark<'a> {
     fn fetch(&self) {
         for project in &self.projects {
@@ -98,10 +95,13 @@ impl<'a> Bookmark<'a> {
             let mut local_file = File::create(local_file_name).unwrap();
             match File::open(shared_file_name) {
                 Ok(f) => {
-                    let mut file = BufReader::new(&f);
+                    let file = BufReader::new(&f);
                     let mut lines = file.lines();
                     lines.next();
-                    local_file.write_fmt(format_args!("0.1.0\n"));
+                    match local_file.write_fmt(format_args!("0.1.0\n")) {
+                        Ok(_) => {}
+                        Err(err) => println!("err:{:?}", err),
+                    }
                     for line in lines {
                         match line {
                             Ok(l) => {
@@ -109,19 +109,20 @@ impl<'a> Bookmark<'a> {
                                 let bookmarked_file = format!("{}{}",
                                                               project.directory.to_str().unwrap(),
                                                               bookmark_info[1].to_string());
-                                local_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
-                                                                  bookmark_info[0],
-                                                                  bookmarked_file,
-                                                                  bookmark_info[2],
-                                                                  bookmark_info[3]));
+                                match local_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
+                                                                        bookmark_info[0],
+                                                                        bookmarked_file,
+                                                                        bookmark_info[2],
+                                                                        bookmark_info[3])) {
+                                    Ok(_) => {}
+                                    Err(err) => println!("err:{:?}", err),
+                                }
                             }
-                            Err(_) => {}
+                            Err(err) => println!("err:{:?}", err),
                         }
                     }
                 }
-                Err(_) => {
-                    continue;
-                }
+                Err(err) => println!("err:{:?}", err),
             }
         }
     }
@@ -137,10 +138,13 @@ impl<'a> Bookmark<'a> {
             let mut shared_file = File::create(shared_file_name).unwrap();
             match File::open(local_file_name) {
                 Ok(f) => {
-                    let mut file = BufReader::new(&f);
+                    let file = BufReader::new(&f);
                     let mut lines = file.lines();
                     lines.next();
-                    shared_file.write_fmt(format_args!("0.1.0\n"));
+                    match shared_file.write_fmt(format_args!("0.1.0\n")) {
+                        Ok(_) => {}
+                        Err(err) => println!("err:{:?}", err),
+                    }
                     for line in lines {
                         match line {
                             Ok(l) => {
@@ -148,22 +152,22 @@ impl<'a> Bookmark<'a> {
                                 let bookmarked_file = bookmark_info[1]
                                     .to_string()
                                     .replacen(project.directory.to_str().unwrap(), "", 1);
-                                shared_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
-                                                                   bookmark_info[0],
-                                                                   bookmarked_file,
-                                                                   bookmark_info[2],
-                                                                   bookmark_info[3]));
+                                match shared_file.write_fmt(format_args!("{}\t{}\t{}\t{}\n",
+                                                                         bookmark_info[0],
+                                                                         bookmarked_file,
+                                                                         bookmark_info[2],
+                                                                         bookmark_info[3])) {
+                                    Ok(_) => {}
+                                    Err(err) => println!("err:{:?}", err),
+                                }
                             }
-                            Err(_) => {}
+                            Err(err) => println!("err:{:?}", err),
                         }
                     }
                 }
-                Err(_) => {
-                    continue;
-                }
+                Err(err) => println!("err:{:?}", err),
             }
         }
-
     }
 }
 
